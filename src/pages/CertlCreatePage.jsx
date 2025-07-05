@@ -33,14 +33,26 @@ const CertlCreatePage = () => {
   const [recentCertls, setRecentCertls] = useState([]);
 
   useEffect(() => {
+    const fetchAll = async (api, key = 'designation') => {
+      let results = [];
+      let page = 1;
+      let hasNext = true;
+      while (hasNext) {
+        const res = await api.getAll({ params: { page, page_size: 100 } });
+        const data = res.data.results || res.data || [];
+        results = results.concat(data);
+        hasNext = !!res.data.next;
+        page += 1;
+      }
+      // Tri alphabétique
+      return results.sort((a, b) => (a[key] || '').localeCompare(b[key] || ''));
+    };
+
     const fetchData = async () => {
       try {
-        const expRes = await exportateurApi.getAll();
-        setExportateurs(expRes.data.results || expRes.data || []);
-        const prodRes = await produitApi.getAll();
-        setProduits(prodRes.data.results || prodRes.data || []);
-        const posteRes = await posteApi.getAll();
-        setPostes(posteRes.data.results || posteRes.data || []);
+        setExportateurs(await fetchAll(exportateurApi, 'designation'));
+        setProduits(await fetchAll(produitApi, 'designation'));
+        setPostes(await fetchAll(posteApi, 'site')); // ou 'poste' selon ton modèle
       } catch (error) {
         console.error('Erreur lors du chargement des listes:', error);
       }
@@ -260,7 +272,7 @@ const CertlCreatePage = () => {
               <MenuItem value="">Sélectionner le lieu d'émission</MenuItem>
               {postes.map((a) => (
                 <MenuItem key={a.id} value={a.id}>
-                  {a.site || a.poste}
+                  {a.poste || a.site}
                 </MenuItem>
               ))}
             </TextField>

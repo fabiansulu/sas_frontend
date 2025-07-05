@@ -7,7 +7,8 @@ import {
   Typography,
   TextField,
   Button,
-  Link as MuiLink
+  Link as MuiLink,
+  CircularProgress
 } from '@mui/material';
 
 export default function LoginPage() {
@@ -17,14 +18,18 @@ export default function LoginPage() {
   });
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       await login(credentials);
       navigate('/');
     } catch (error) {
       console.error('Login failed:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -57,6 +62,7 @@ export default function LoginPage() {
             autoFocus
             value={credentials.username}
             onChange={(e) => setCredentials({...credentials, username: e.target.value})}
+            disabled={loading}
           />
           <TextField
             margin="normal"
@@ -66,14 +72,23 @@ export default function LoginPage() {
             type="password"
             value={credentials.password}
             onChange={(e) => setCredentials({...credentials, password: e.target.value})}
+            disabled={loading}
           />
           <Button
             type="submit"
             fullWidth
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
+            disabled={loading}
           >
-            Se connecter
+            {loading ? (
+              <>
+                <CircularProgress size={22} sx={{ mr: 1 }} />
+                Connexion en cours...
+              </>
+            ) : (
+              "Se connecter"
+            )}
           </Button>
           <Box sx={{ textAlign: 'right' }}>
             <MuiLink href="#" variant="body2">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, TextField, Container, Typography, MenuItem, Grid, Box, CircularProgress, Alert } from '@mui/material';
+import { Button, TextField, Container, Typography, Box, CircularProgress, Alert, Autocomplete } from '@mui/material';
 import { cereApi } from '../api/cereApi';
 import { exportateurApi } from '../api/exportateurApi';
 import { transitaireApi } from '../api/transitaireApi';
@@ -47,36 +47,22 @@ const CereCreatePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Chargement suggestions pour autocomplete (texte uniquement)
   useEffect(() => {
-    const fetchAll = async (api, key = 'designation') => {
-      let results = [];
-      let page = 1;
-      let hasNext = true;
-      while (hasNext) {
-        const res = await api.getAll({ params: { page, page_size: 1000 } });
-        const data = res.data.results || res.data || [];
-        results = results.concat(data);
-        hasNext = !!res.data.next;
-        page += 1;
-      }
-      // Tri alphabétique
-      return results.sort((a, b) => (a[key] || '').localeCompare(b[key] || ''));
-    };
-
     const fetchData = async () => {
       setLoading(true);
       setError('');
       try {
         const [exp, tra, prod, pos] = await Promise.all([
-          fetchAll(exportateurApi, 'designation'),
-          fetchAll(transitaireApi, 'designation'),
-          fetchAll(produitApi, 'designation'),
-          fetchAll(posteApi, 'poste'),
+          exportateurApi.getAll({ params: { page_size: 10000 } }),
+          transitaireApi.getAll({ params: { page_size: 10000 } }),
+          produitApi.getAll({ params: { page_size: 10000 } }),
+          posteApi.getAll({ params: { page_size: 10000 } }),
         ]);
-        setExportateurs(exp);
-        setTransitaires(tra);
-        setProduits(prod);
-        setPostes(pos);
+        setExportateurs((exp.data.results || exp.data || []).map(e => ({ id: e.id, label: e.designation })).filter(e => e.label));
+        setTransitaires((tra.data.results || tra.data || []).map(e => ({ id: e.id, label: e.designation })).filter(e => e.label));
+        setProduits((prod.data.results || prod.data || []).map(e => ({ id: e.id, label: e.designation })).filter(e => e.label));
+        setPostes((pos.data.results || pos.data || []).map(e => ({ id: e.id, label: e.site || e.poste || e.antenne })).filter(e => e.label));
       } catch (err) {
         setError("Erreur lors du chargement des listes. Vérifiez la connexion au serveur.");
         console.error('Erreur lors du chargement des listes:', err);
@@ -97,6 +83,11 @@ const CereCreatePage = () => {
     } else {
       setFormData({ ...formData, [name]: value });
     }
+  };
+
+  // Pour les champs autocomplete
+  const handleAutocompleteChange = (name, option) => {
+    setFormData({ ...formData, [name]: option ? option.id : '' });
   };
 
   const handleSubmit = async (e) => {
@@ -124,7 +115,7 @@ const CereCreatePage = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="md">
+      <Container maxWidth="sm">
         <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight={300}>
           <CircularProgress sx={{ mb: 2 }} />
           <Typography>Chargement des listes...</Typography>
@@ -135,184 +126,130 @@ const CereCreatePage = () => {
 
   if (error) {
     return (
-      <Container maxWidth="md">
+      <Container maxWidth="sm">
         <Alert severity="error">{error}</Alert>
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="md">
+    <Container maxWidth="sm">
       <Typography variant="h4" gutterBottom>
         Nouveau Certificat d'Exportation
       </Typography>
       <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              type='date'
-              label="Date d'Emission"
-              name="date_emission"
-              value={formData.date_emission}
-              onChange={handleChange}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              label="Numéro CERE"
-              name="numero_cere"
-              value={formData.numero_cere}
-              onChange={handleChange}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-              error={!!numeroCereError}
-              helperText={numeroCereError || "Ex: LSH-123456-2025"}
-              sx={{ textTransform: 'uppercase' }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              label="Exportateur"
-              name="exportateur"
-              value={formData.exportateur}
-              onChange={handleChange}
-              fullWidth
-              size='small'
-              margin="normal"
-              required
-            >
-              <MenuItem value="">Sélectionner un exportateur</MenuItem>
-              {exportateurs.map((exp) => (
-                <MenuItem key={exp.id} value={exp.id}>
-                  {exp.designation || exp.sigle}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              label="Transitaire"
-              name="transitaire"
-              value={formData.transitaire}
-              onChange={handleChange}
-              fullWidth
-              margin="normal"
-              size='small'
-              required
-            >
-              <MenuItem value="">Sélectionner un transitaire</MenuItem>
-              {transitaires.map((tra) => (
-                <MenuItem key={tra.id} value={tra.id}>
-                  {tra.designation || tra.sigle}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              label="Numéro de Lot"
-              name="numero_lot"
-              value={formData.numero_lot}
-              onChange={handleChange}
-              fullWidth
-              margin="normal"
-              size='small'
-              required
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              label="Produit"
-              name="produit"
-              value={formData.produit}
-              onChange={handleChange}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-            >
-              <MenuItem value="">Sélectionner un produit</MenuItem>
-              {produits.map((prod) => (
-                <MenuItem key={prod.id} value={prod.id}>
-                  {prod.designation || prod.abbreviation}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              type="number"
-              step="0.01"
-              label="Taux de Rx"
-              name="taux_radioactivite"
-              value={formData.taux_radioactivite}
-              onChange={handleChange}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              label="Poids"
-              name="poids"
-              type='number'
-              step="0.01"
-              placeholder="Poids en tonnes"
-              value={formData.poids}
-              onChange={handleChange}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <input 
-              type="file" 
-              name="scan"
-              accept=".pdf,.jpg,.png"
-              onChange={handleChange}
-              style={{ width: '100%', margin: '8px 0'}}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              label="Emis à"
-              name="emis_a"
-              value={formData.emis_a}
-              onChange={handleChange}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-            >
-              <MenuItem value="">Sélectionner le lieu d'émission</MenuItem>
-              {postes.map((a) => (
-                <MenuItem key={a.id} value={a.id}>
-                  {a.poste || a.site || a.designation}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12}>
-            <Button type="submit" variant="contained" fullWidth sx={{ mt: 2 }}>
-              Enregistrer
-            </Button>
-          </Grid>
-        </Grid>
+        <TextField
+          type='date'
+          label="Date d'Emission"
+          name="date_emission"
+          value={formData.date_emission}
+          onChange={handleChange}
+          fullWidth
+          margin="normal"
+          required
+          size='small'
+          InputLabelProps={{ shrink: true }}
+        />
+        <TextField
+          label="Numéro CERE"
+          name="numero_cere"
+          value={formData.numero_cere}
+          onChange={handleChange}
+          fullWidth
+          margin="normal"
+          required
+          size='small'
+          error={!!numeroCereError}
+          helperText={numeroCereError || "Ex: LSH-123456-2025"}
+          sx={{ textTransform: 'uppercase' }}
+        />
+        <Autocomplete
+          options={exportateurs}
+          getOptionLabel={option => option.label || ''}
+          value={exportateurs.find(e => e.id === formData.exportateur) || null}
+          onChange={(_, value) => handleAutocompleteChange('exportateur', value)}
+          renderInput={params => (
+            <TextField {...params} label="Exportateur" margin="normal" required size="small" fullWidth />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value?.id}
+        />
+        <Autocomplete
+          options={transitaires}
+          getOptionLabel={option => option.label || ''}
+          value={transitaires.find(e => e.id === formData.transitaire) || null}
+          onChange={(_, value) => handleAutocompleteChange('transitaire', value)}
+          renderInput={params => (
+            <TextField {...params} label="Transitaire" margin="normal" required size="small" fullWidth />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value?.id}
+        />
+        <TextField
+          label="Numéro de Lot"
+          name="numero_lot"
+          value={formData.numero_lot}
+          onChange={handleChange}
+          fullWidth
+          margin="normal"
+          size='small'
+          required
+        />
+        <Autocomplete
+          options={produits}
+          getOptionLabel={option => option.label || ''}
+          value={produits.find(e => e.id === formData.produit) || null}
+          onChange={(_, value) => handleAutocompleteChange('produit', value)}
+          renderInput={params => (
+            <TextField {...params} label="Produit" margin="normal" required size="small" fullWidth />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value?.id}
+        />
+        <TextField
+          type="number"
+          step="0.01"
+          label="Taux de Rx"
+          name="taux_radioactivite"
+          value={formData.taux_radioactivite}
+          onChange={handleChange}
+          fullWidth
+          margin="normal"
+          required
+          size='small'
+        />
+        <TextField
+          label="Poids"
+          name="poids"
+          type='number'
+          step="0.01"
+          placeholder="Poids en tonnes"
+          value={formData.poids}
+          onChange={handleChange}
+          fullWidth
+          margin="normal"
+          required
+          size='small'
+        />
+        <Box sx={{ my: 2 }}>
+          <input 
+            type="file" 
+            name="scan"
+            accept=".pdf,.jpg,.png"
+            onChange={handleChange}
+            style={{ width: '100%', margin: '8px 0'}}
+          />
+        </Box>
+        <Autocomplete
+          options={postes}
+          getOptionLabel={option => option.label || ''}
+          value={postes.find(e => e.id === formData.emis_a) || null}
+          onChange={(_, value) => handleAutocompleteChange('emis_a', value)}
+          renderInput={params => (
+            <TextField {...params} label="Emis à" margin="normal" required size="small" fullWidth />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value?.id}
+        />
+        <Button type="submit" variant="contained" fullWidth sx={{ mt: 2 }}>
+          Enregistrer
+        </Button>
       </Box>
     </Container>
   );

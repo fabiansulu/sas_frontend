@@ -14,6 +14,8 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.1.2",
     "@mui/material": "^7.1.2",
+    "@sentry/react": "^9.35.0",
+    "@sentry/tracing": "^7.120.3",
     "axios": "^1.10.0",
     "chart.js": "^4.5.0",
     "react": "^19.1.0",

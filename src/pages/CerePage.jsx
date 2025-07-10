@@ -1,18 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import Loader from '../components/Loader';
+import ErrorDisplay from '../components/ErrorDisplay';
 import { Link } from 'react-router-dom';
 import {
   Button, Table, Container, Typography, Paper, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, TextField, Box, TableSortLabel, Grid
+  TableContainer, TableHead, TableRow, TextField, Box, TableSortLabel, Grid, useMediaQuery,
+  TablePagination, Autocomplete
 } from '@mui/material';
 import { cereApi } from '../api/cereApi';
-
-// Ajout Chart.js
+import { exportateurApi } from '../api/exportateurApi';
+import { transitaireApi } from '../api/transitaireApi';
+import { produitApi } from '../api/produitApi';
+import { posteApi } from '../api/posteApi';
 import { Bar } from 'react-chartjs-2';
 import { Chart, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
 Chart.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 const CerePage = () => {
   const [ceres, setCeres] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filteredCeres, setFilteredCeres] = useState([]);
   const [search, setSearch] = useState({
     date: '',
@@ -27,38 +34,64 @@ const CerePage = () => {
     emis_a: '',
   });
   const [sortConfig, setSortConfig] = useState({ key: 'date_emission', direction: 'desc' });
+  const isMobile = useMediaQuery('(max-width:900px)');
 
-  // Récupération des données
+  // Pagination globale
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Pour les listes de suggestions autocomplete
+  const [exportateurs, setExportateurs] = useState([]);
+  const [transitaires, setTransitaires] = useState([]);
+  const [produits, setProduits] = useState([]);
+  const [postes, setPostes] = useState([]);
+  const [loadingDropdowns, setLoadingDropdowns] = useState(false);
+
   useEffect(() => {
-    const fetchCeres = async () => {
-      try {
-        const response = await cereApi.getAll();
+    setLoading(true);
+    setError('');
+    cereApi.getAll()
+      .then(response => {
         const data = Array.isArray(response.data)
           ? response.data
           : response.data.results || [];
         setCeres(data);
         setFilteredCeres(data);
-      } catch (error) {
-        console.error('Error fetching CEREs:', error);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Erreur lors de la récupération des CEREs. Veuillez réessayer plus tard.');
+        setLoading(false);
         setCeres([]);
         setFilteredCeres([]);
-      }
-    };
-    fetchCeres();
+      });
   }, []);
 
-  // Filtrage à chaque modification du formulaire de recherche ou des données
+  // Chargement suggestions pour autocomplete (texte uniquement)
+  useEffect(() => {
+    setLoadingDropdowns(true);
+    Promise.all([
+      exportateurApi.getAll({ params: { page_size: 10000 } }),
+      transitaireApi.getAll({ params: { page_size: 10000 } }),
+      produitApi.getAll({ params: { page_size: 10000 } }),
+      posteApi.getAll({ params: { page_size: 10000 } }),
+    ]).then(([exp, tra, prod, pos]) => {
+      setExportateurs((exp.data.results || exp.data || []).map(e => e.designation).filter(Boolean));
+      setTransitaires((tra.data.results || tra.data || []).map(e => e.designation).filter(Boolean));
+      setProduits((prod.data.results || prod.data || []).map(e => e.designation).filter(Boolean));
+      setPostes((pos.data.results || pos.data || []).map(e => e.poste || e.designation).filter(Boolean));
+      setLoadingDropdowns(false);
+    }).catch(() => setLoadingDropdowns(false));
+  }, []);
+
   useEffect(() => {
     let filtered = ceres.filter((cere) => {
       const date = cere.date_emission || '';
-      // Filtres de période
       if (search.date && date !== search.date) return false;
       if (search.dateStart && date < search.dateStart) return false;
       if (search.dateEnd && date > search.dateEnd) return false;
-      if (search.month && !date.startsWith(search.month)) return false; // format YYYY-MM
-      if (search.year && !date.startsWith(search.year)) return false;   // format YYYY
-
-      // Autres filtres
+      if (search.month && !date.startsWith(search.month)) return false;
+      if (search.year && !date.startsWith(search.year)) return false;
       return (
         (search.numero_cere === '' || (cere.numero_cere && cere.numero_cere.toLowerCase().includes(search.numero_cere.toLowerCase()))) &&
         (search.exportateur === '' || (cere.exportateur && cere.exportateur.designation && cere.exportateur.designation.toLowerCase().includes(search.exportateur.toLowerCase()))) &&
@@ -67,12 +100,11 @@ const CerePage = () => {
         (search.emis_a === '' || (cere.emis_a && (cere.emis_a.poste || cere.emis_a.designation || '').toLowerCase().includes(search.emis_a.toLowerCase())))
       );
     });
-    // Appliquer le tri après filtrage
     filtered = sortData(filtered, sortConfig);
     setFilteredCeres(filtered);
+    setPage(0); // reset page on filter
   }, [search, ceres, sortConfig]);
 
-  // Fonction de tri
   const sortData = (data, config) => {
     if (!config.key) return data;
     const sorted = [...data].sort((a, b) => {
@@ -117,29 +149,31 @@ const CerePage = () => {
     return sorted;
   };
 
-  // Gestion du tri au clic sur l'en-tête
   const handleSort = (key) => {
     setSortConfig((prev) => {
       if (prev.key === key) {
-        // Inverse la direction si on clique deux fois
         return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
       }
       return { key, direction: 'asc' };
     });
   };
 
-  // Calcul des totaux
+  // Pagination handlers
+  const handleChangePage = (event, newPage) => setPage(newPage);
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Statistiques et graphiques
   const totalCeres = filteredCeres.length;
   const totalPoids = filteredCeres.reduce((sum, cere) => sum + (Number(cere.poids) || 0), 0);
-
-  // Calculs taux radioactivité
   const tauxRadioactiviteList = filteredCeres.map(c => Number(c.taux_radioactivite) || 0);
   const tauxMin = tauxRadioactiviteList.length ? Math.min(...tauxRadioactiviteList) : 0;
   const tauxMax = tauxRadioactiviteList.length ? Math.max(...tauxRadioactiviteList) : 0;
   const tauxMoyen = tauxRadioactiviteList.length ? ((tauxMin + tauxMax) / 2).toFixed(2) : 0;
 
-  // Données graphiques
-  // 1. Exportateurs par date (nombre de CERE)
+  // Graphiques dynamiques
   const exportateurData = {};
   filteredCeres.forEach(c => {
     const date = c.date_emission || '';
@@ -150,7 +184,6 @@ const CerePage = () => {
   const exportateurLabels = Object.keys(exportateurData);
   const exportateurValues = Object.values(exportateurData);
 
-  // 2. Transitaires par date (nombre de CERE)
   const transitaireData = {};
   filteredCeres.forEach(c => {
     const date = c.date_emission || '';
@@ -161,7 +194,6 @@ const CerePage = () => {
   const transitaireLabels = Object.keys(transitaireData);
   const transitaireValues = Object.values(transitaireData);
 
-  // 3. Produits par date (quantité exportée)
   const produitData = {};
   filteredCeres.forEach(c => {
     const date = c.date_emission || '';
@@ -172,27 +204,32 @@ const CerePage = () => {
   const produitLabels = Object.keys(produitData);
   const produitValues = Object.values(produitData);
 
-  return (
-    <Container>
-      <Typography variant="h4" gutterBottom>
-        CERTIFICATS D'EVALUATION DE LA RADIOACTIVITE A L'EXPORTATION
-      </Typography>
-      <Button component={Link} to="/cere/create" variant="contained" sx={{ mb: 3 }}>
-        Nouveau CERE
-      </Button>
-      <Button
-        variant="outlined"
-        sx={{ mb: 3, ml: 2 }}
-        onClick={() => {
-          window.open('https://cgea-sas-backend.onrender.com/api/export/cere/excel/', '_blank');
-        }}
-      >
-        Exporter en Excel
-      </Button>
+  if (loading) return <Loader text="Chargement des certificats..." />;
+  if (error) return <ErrorDisplay error={error} />;
 
-      {/* Formulaire de recherche responsive */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Grid container spacing={2}>
+  return (
+    <Container maxWidth="xl" sx={{ px: isMobile ? 0.5 : 2 }}>
+      <Typography variant={isMobile ? "h6" : "h4"} gutterBottom>
+        CCR - EXPORTATION
+      </Typography>
+      <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 2, mb: 2 }}>
+        <Button component={Link} to="/cere/create" variant="contained" sx={{ mb: isMobile ? 1 : 0 }}>
+          Nouveau CERE
+        </Button>
+        <Button
+          variant="outlined"
+          sx={{ mb: isMobile ? 1 : 0 }}
+          onClick={() => {
+            window.open('https://cgea-sas-backend.onrender.com/api/export/cere/excel/', '_blank');
+          }}
+        >
+          Exporter en Excel
+        </Button>
+      </Box>
+
+      {/* Formulaire de recherche responsive avec autocomplete freeSolo */}
+      <Paper sx={{ p: isMobile ? 1 : 2, mb: 2 }}>
+        <Grid container spacing={1}>
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               label="Date précise"
@@ -232,6 +269,7 @@ const CerePage = () => {
               type="month"
               value={search.month}
               onChange={e => setSearch({ ...search, month: e.target.value })}
+              InputLabelProps={{ shrink: true }}
               size="small"
               fullWidth
             />
@@ -243,8 +281,8 @@ const CerePage = () => {
               value={search.year}
               onChange={e => setSearch({ ...search, year: e.target.value })}
               size="small"
-              inputProps={{ min: 1900, max: 2100 }}
               fullWidth
+              inputProps={{ min: 1900, max: 2100 }}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -257,39 +295,51 @@ const CerePage = () => {
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Exportateur"
-              value={search.exportateur}
-              onChange={e => setSearch({ ...search, exportateur: e.target.value })}
-              size="small"
-              fullWidth
+            <Autocomplete
+              freeSolo
+              options={exportateurs}
+              loading={loadingDropdowns}
+              value={search.exportateur || ''}
+              onInputChange={(_, value) => setSearch({ ...search, exportateur: value })}
+              renderInput={params => (
+                <TextField {...params} label="Exportateur" size="small" fullWidth />
+              )}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Transitaire"
-              value={search.transitaire}
-              onChange={e => setSearch({ ...search, transitaire: e.target.value })}
-              size="small"
-              fullWidth
+            <Autocomplete
+              freeSolo
+              options={transitaires}
+              loading={loadingDropdowns}
+              value={search.transitaire || ''}
+              onInputChange={(_, value) => setSearch({ ...search, transitaire: value })}
+              renderInput={params => (
+                <TextField {...params} label="Transitaire" size="small" fullWidth />
+              )}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Produit"
-              value={search.produit}
-              onChange={e => setSearch({ ...search, produit: e.target.value })}
-              size="small"
-              fullWidth
+            <Autocomplete
+              freeSolo
+              options={produits}
+              loading={loadingDropdowns}
+              value={search.produit || ''}
+              onInputChange={(_, value) => setSearch({ ...search, produit: value })}
+              renderInput={params => (
+                <TextField {...params} label="Produit" size="small" fullWidth />
+              )}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Emis à"
-              value={search.emis_a}
-              onChange={e => setSearch({ ...search, emis_a: e.target.value })}
-              size="small"
-              fullWidth
+            <Autocomplete
+              freeSolo
+              options={postes}
+              loading={loadingDropdowns}
+              value={search.emis_a || ''}
+              onInputChange={(_, value) => setSearch({ ...search, emis_a: value })}
+              renderInput={params => (
+                <TextField {...params} label="Emis à" size="small" fullWidth />
+              )}
             />
           </Grid>
         </Grid>
@@ -308,43 +358,64 @@ const CerePage = () => {
         </Typography>
       </Box>
 
-      {/* Graphiques */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 4, mb: 4 }}>
-        <Box sx={{ flex: 1, minWidth: 300 }}>
+      {/* Graphiques dynamiques et responsives */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        flexWrap: 'wrap',
+        gap: 2,
+        mb: 4
+      }}>
+        <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300, maxWidth: 500 }}>
           <Typography variant="subtitle2" align="center">Exportateurs / Date (nombre de CERE)</Typography>
           <Bar
             data={{
               labels: exportateurLabels,
               datasets: [{ label: 'CERE', data: exportateurValues, backgroundColor: '#1976d2' }]
             }}
-            options={{ responsive: true, plugins: { legend: { display: false } } }}
+            options={{
+              responsive: false,
+              plugins: { legend: { display: false } },
+              maintainAspectRatio: true,
+            }}
+            style={{ width: "100%", height: 250 }}
           />
         </Box>
-        <Box sx={{ flex: 1, minWidth: 300 }}>
+        <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300, maxWidth: 500 }}>
           <Typography variant="subtitle2" align="center">Transitaires / Date (nombre de CERE)</Typography>
           <Bar
             data={{
               labels: transitaireLabels,
               datasets: [{ label: 'CERE', data: transitaireValues, backgroundColor: '#388e3c' }]
             }}
-            options={{ responsive: true, plugins: { legend: { display: false } } }}
+            options={{
+              responsive: false,
+              plugins: { legend: { display: false } },
+              maintainAspectRatio: true,
+            }}
+            style={{ width: "100%", height: 250 }}
           />
         </Box>
-        <Box sx={{ flex: 1, minWidth: 300 }}>
+        <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300, maxWidth: 500 }}>
           <Typography variant="subtitle2" align="center">Produits / Date (quantité exportée)</Typography>
           <Bar
             data={{
               labels: produitLabels,
               datasets: [{ label: 'Poids (t)', data: produitValues, backgroundColor: '#fbc02d' }]
             }}
-            options={{ responsive: true, plugins: { legend: { display: false } } }}
+            options={{
+              responsive: false,
+              plugins: { legend: { display: false } },
+              maintainAspectRatio: true,
+            }}
+            style={{ width: "100%", height: 250 }}
           />
         </Box>
       </Box>
 
-      {/* Tableau avec tri */}
-      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-        <Table>
+      {/* Tableau responsive avec pagination */}
+      <TableContainer component={Paper} sx={{ overflowX: 'auto', minWidth: isMobile ? 350 : 900 }}>
+        <Table size={isMobile ? "small" : "medium"}>
           <TableHead>
             <TableRow>
               <TableCell>
@@ -414,7 +485,7 @@ const CerePage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredCeres.map((cere) => (
+            {filteredCeres.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((cere) => (
               <TableRow key={cere.id}>
                 <TableCell>{cere.numero_cere}</TableCell>
                 <TableCell>{cere.date_emission}</TableCell>
@@ -439,6 +510,15 @@ const CerePage = () => {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={filteredCeres.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+        />
       </TableContainer>
     </Container>
   );

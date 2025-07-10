@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Typography, Paper, Table, TableHead, TableRow, TableCell, TableBody, Button, TablePagination, CircularProgress, Box } from '@mui/material';
 import { exportateurApi } from '../api/exportateurApi';
+import { usePagination } from '../contexts/PaginationContext';
 
 const ExportateursPage = () => {
   const [exportateurs, setExportateurs] = useState([]);
   const [count, setCount] = useState(0);
-  const [page, setPage] = useState(0); // MUI: page commence à 0
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
+
+  // Utilisation du contexte pagination
+  const {
+    page,
+    rowsPerPage,
+    handleChangePage,
+    handleChangeRowsPerPage,
+    setPage
+  } = usePagination();
 
   useEffect(() => {
     setLoading(true);
@@ -19,11 +27,8 @@ const ExportateursPage = () => {
     }).catch(() => setLoading(false));
   }, [page, rowsPerPage]);
 
-  const handleChangePage = (event, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
+  // Reset page si la liste change (optionnel mais utile si tu ajoutes des filtres)
+  // useEffect(() => { setPage(0); }, [/* dépendances */]);
 
   return (
     <Container>

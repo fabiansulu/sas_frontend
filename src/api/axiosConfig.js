@@ -2,8 +2,8 @@ import axios from 'axios';
 
 // Configuration de base de l'instance axios
 const api = axios.create({
-  baseURL: 'https://cgea-sas-backend.onrender.com/api/', // Remplacez par l'URL de votre backend Django
-  //headers: { 'Content-Type': 'application/json',  },
+  baseURL: 'https://cgea-sas-backend.onrender.com/api/',
+  //headers: { 'Content-Type': 'application/json' },
 });
 
 // Intercepteur pour ajouter le token JWT (si utilisé)
@@ -15,19 +15,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Intercepteur pour gérer les erreurs globales
+// Intercepteur pour gérer les erreurs globales et le refresh automatique
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Gérer la déconnexion ici
-    }
-    if (error.response?.status === 403) {
-      // Gérer l'accès interdit ici
-    } 
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // Gestion du refresh token automatique si access_token expiré
     if (
       error.response?.status === 401 &&
       error.response?.data?.code === 'token_not_valid' &&
@@ -42,19 +36,34 @@ api.interceptors.response.use(
           api.defaults.headers['Authorization'] = `Bearer ${res.data.access}`;
           originalRequest.headers['Authorization'] = `Bearer ${res.data.access}`;
           return api(originalRequest);
-        } catch (refreshError) { 
+        } catch (refreshError) {
           // Si le refresh échoue, déconnecte l'utilisateur
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           window.location.href = '/login';
         }
       } else {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
         window.location.href = '/login';
       }
     }
-  }
+
+    // Gestion de la déconnexion si 401 sans refresh possible
+    if (error.response?.status === 401) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      window.location.href = '/login';
+    }
+
+    // Gestion de l'accès interdit (403)
+    if (error.response?.status === 403) {
+      // Tu peux afficher un message ou rediriger si besoin
+      // window.location.href = '/forbidden';
+    }
+
     return Promise.reject(error);
   }
 );
- 
+
 export default api;

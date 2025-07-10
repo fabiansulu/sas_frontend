@@ -1,18 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import Loader from '../components/Loader';
+import ErrorDisplay from '../components/ErrorDisplay';
 import { Link } from 'react-router-dom';
 import {
   Button, Table, Container, Typography, Paper, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, TextField, Box, TableSortLabel, Grid
+  TableContainer, TableHead, TableRow, TextField, Box, TableSortLabel, Grid, useMediaQuery,
+  TablePagination, Autocomplete
 } from '@mui/material';
 import { certlApi } from '../api/certlApi';
-
-// Ajout Chart.js
+import { exportateurApi } from '../api/exportateurApi';
+import { produitApi } from '../api/produitApi';
+import { posteApi } from '../api/posteApi';
 import { Bar } from 'react-chartjs-2';
 import { Chart, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
 Chart.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 const CertlPage = () => {
   const [certls, setCertls] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filteredCertls, setFilteredCertls] = useState([]);
   const [search, setSearch] = useState({
     date: '',
@@ -28,36 +34,64 @@ const CertlPage = () => {
     emis_a: '',
   });
   const [sortConfig, setSortConfig] = useState({ key: 'date_emission', direction: 'desc' });
+  const isMobile = useMediaQuery('(max-width:900px)');
+
+  // Pagination globale
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Pour les listes de suggestions autocomplete (texte uniquement)
+  const [operateurs, setOperateurs] = useState([]);
+  const [destinateurs, setDestinateurs] = useState([]);
+  const [produits, setProduits] = useState([]);
+  const [postes, setPostes] = useState([]);
+  const [loadingDropdowns, setLoadingDropdowns] = useState(false);
 
   useEffect(() => {
-    const fetchCertls = async () => {
-      try {
-        const response = await certlApi.getAll();
+    setLoading(true);
+    setError('');
+    certlApi.getAll()
+      .then(response => {
         const data = Array.isArray(response.data)
           ? response.data
           : response.data.results || [];
         setCertls(data);
         setFilteredCertls(data);
-      } catch (error) {
-        console.error('Error fetching CERTLs:', error);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Erreur lors de la récupération des CERTLs. Veuillez réessayer plus tard.');
+        setLoading(false);
         setCertls([]);
         setFilteredCertls([]);
-      }
-    };
-    fetchCertls();
+      });
+  }, []);
+
+  // Chargement suggestions pour autocomplete (texte uniquement)
+  useEffect(() => {
+    setLoadingDropdowns(true);
+    Promise.all([
+      exportateurApi.getAll({ params: { page_size: 10000 } }),
+      exportateurApi.getAll({ params: { page_size: 10000 } }),
+      produitApi.getAll({ params: { page_size: 10000 } }),
+      posteApi.getAll({ params: { page_size: 10000 } }),
+    ]).then(([op, dest, prod, pos]) => {
+      setOperateurs((op.data.results || op.data || []).map(e => e.designation).filter(Boolean));
+      setDestinateurs((dest.data.results || dest.data || []).map(e => e.designation).filter(Boolean));
+      setProduits((prod.data.results || prod.data || []).map(e => e.designation).filter(Boolean));
+      setPostes((pos.data.results || pos.data || []).map(e => e.poste || e.designation || e.site).filter(Boolean));
+      setLoadingDropdowns(false);
+    }).catch(() => setLoadingDropdowns(false));
   }, []);
 
   useEffect(() => {
     let filtered = certls.filter((certl) => {
       const date = certl.date_emission || '';
-      // Filtres de période
       if (search.date && date !== search.date) return false;
       if (search.dateStart && date < search.dateStart) return false;
       if (search.dateEnd && date > search.dateEnd) return false;
-      if (search.month && !date.startsWith(search.month)) return false; // format YYYY-MM
-      if (search.year && !date.startsWith(search.year)) return false;   // format YYYY
-
-      // Autres filtres
+      if (search.month && !date.startsWith(search.month)) return false;
+      if (search.year && !date.startsWith(search.year)) return false;
       return (
         (search.numero_certificat === '' || (certl.numero_certificat && certl.numero_certificat.toLowerCase().includes(search.numero_certificat.toLowerCase()))) &&
         (search.operateur_minier === '' || (certl.operateur_minier && certl.operateur_minier.designation && certl.operateur_minier.designation.toLowerCase().includes(search.operateur_minier.toLowerCase()))) &&
@@ -69,6 +103,7 @@ const CertlPage = () => {
     });
     filtered = sortData(filtered, sortConfig);
     setFilteredCertls(filtered);
+    setPage(0); // reset page on filter
   }, [search, certls, sortConfig]);
 
   const sortData = (data, config) => {
@@ -128,18 +163,22 @@ const CertlPage = () => {
     });
   };
 
-  // Calcul des totaux
+  // Pagination handlers
+  const handleChangePage = (event, newPage) => setPage(newPage);
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Statistiques et graphiques
   const totalCertls = filteredCertls.length;
   const totalPoids = filteredCertls.reduce((sum, certl) => sum + (Number(certl.poids) || 0), 0);
-
-  // Calculs taux radioactivité
   const tauxRadioactiviteList = filteredCertls.map(c => Number(c.taux_radioactivite) || 0);
   const tauxMin = tauxRadioactiviteList.length ? Math.min(...tauxRadioactiviteList) : 0;
   const tauxMax = tauxRadioactiviteList.length ? Math.max(...tauxRadioactiviteList) : 0;
   const tauxMoyen = tauxRadioactiviteList.length ? ((tauxMin + tauxMax) / 2).toFixed(2) : 0;
 
-  // Données graphiques
-  // 1. Opérateurs miniers par date (nombre de CERTL)
+  // Graphiques dynamiques
   const operateurData = {};
   filteredCertls.forEach(c => {
     const date = c.date_emission || '';
@@ -150,7 +189,6 @@ const CertlPage = () => {
   const operateurLabels = Object.keys(operateurData);
   const operateurValues = Object.values(operateurData);
 
-  // 2. Destinateurs par date (nombre de CERTL)
   const destinateurData = {};
   filteredCertls.forEach(c => {
     const date = c.date_emission || '';
@@ -161,7 +199,6 @@ const CertlPage = () => {
   const destinateurLabels = Object.keys(destinateurData);
   const destinateurValues = Object.values(destinateurData);
 
-  // 3. Produits par date (quantité)
   const produitData = {};
   filteredCertls.forEach(c => {
     const date = c.date_emission || '';
@@ -172,27 +209,32 @@ const CertlPage = () => {
   const produitLabels = Object.keys(produitData);
   const produitValues = Object.values(produitData);
 
-  return (
-    <Container>
-      <Typography variant="h4" gutterBottom>
-        CERTIFICATS D'EVALUATION DE LA RADIOACTIVITE POUR LES TRANSACTIONS LOCALES
-      </Typography>
-      <Button component={Link} to="/certl/create" variant="contained" sx={{ mb: 3 }}>
-        Nouveau CERTL
-      </Button>
-      <Button
-        variant="outlined"
-        sx={{ mb: 3, ml: 2 }}
-        onClick={() => {
-          window.open('https://cgea-sas-backend.onrender.com/api/export/certl/excel/', '_blank');
-        }}
-      >
-        Exporter en Excel
-      </Button>
+  if (loading) return <Loader text="Chargement des certificats..." />;
+  if (error) return <ErrorDisplay error={error} />;
 
-      {/* Formulaire de recherche responsive */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Grid container spacing={2}>
+  return (
+    <Container maxWidth="xl" sx={{ px: isMobile ? 0.5 : 2 }}>
+      <Typography variant={isMobile ? "h6" : "h4"} gutterBottom>
+        CCR - TRANSACTIONS LOCALES
+      </Typography>
+      <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 2, mb: 2 }}>
+        <Button component={Link} to="/certl/create" variant="contained" sx={{ mb: isMobile ? 1 : 0 }}>
+          Nouveau CERTL
+        </Button>
+        <Button
+          variant="outlined"
+          sx={{ mb: isMobile ? 1 : 0 }}
+          onClick={() => {
+            window.open('https://cgea-sas-backend.onrender.com/api/export/certl/excel/', '_blank');
+          }}
+        >
+          Exporter en Excel
+        </Button>
+      </Box>
+
+      {/* Formulaire de recherche responsive avec autocomplete freeSolo */}
+      <Paper sx={{ p: isMobile ? 1 : 2, mb: 2 }}>
+        <Grid container spacing={1}>
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               label="Date précise"
@@ -232,6 +274,7 @@ const CertlPage = () => {
               type="month"
               value={search.month}
               onChange={e => setSearch({ ...search, month: e.target.value })}
+              InputLabelProps={{ shrink: true }}
               size="small"
               fullWidth
             />
@@ -243,8 +286,8 @@ const CertlPage = () => {
               value={search.year}
               onChange={e => setSearch({ ...search, year: e.target.value })}
               size="small"
-              inputProps={{ min: 1900, max: 2100 }}
               fullWidth
+              inputProps={{ min: 1900, max: 2100 }}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -257,30 +300,39 @@ const CertlPage = () => {
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Opérateur minier"
-              value={search.operateur_minier}
-              onChange={e => setSearch({ ...search, operateur_minier: e.target.value })}
-              size="small"
-              fullWidth
+            <Autocomplete
+              freeSolo
+              options={operateurs}
+              loading={loadingDropdowns}
+              value={search.operateur_minier || ''}
+              onInputChange={(_, value) => setSearch({ ...search, operateur_minier: value })}
+              renderInput={params => (
+                <TextField {...params} label="Opérateur minier" size="small" fullWidth />
+              )}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Destinateur"
-              value={search.destinateur}
-              onChange={e => setSearch({ ...search, destinateur: e.target.value })}
-              size="small"
-              fullWidth
+            <Autocomplete
+              freeSolo
+              options={destinateurs}
+              loading={loadingDropdowns}
+              value={search.destinateur || ''}
+              onInputChange={(_, value) => setSearch({ ...search, destinateur: value })}
+              renderInput={params => (
+                <TextField {...params} label="Destinateur" size="small" fullWidth />
+              )}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Produit"
-              value={search.produit}
-              onChange={e => setSearch({ ...search, produit: e.target.value })}
-              size="small"
-              fullWidth
+            <Autocomplete
+              freeSolo
+              options={produits}
+              loading={loadingDropdowns}
+              value={search.produit || ''}
+              onInputChange={(_, value) => setSearch({ ...search, produit: value })}
+              renderInput={params => (
+                <TextField {...params} label="Produit" size="small" fullWidth />
+              )}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -293,12 +345,15 @@ const CertlPage = () => {
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Emis à"
-              value={search.emis_a}
-              onChange={e => setSearch({ ...search, emis_a: e.target.value })}
-              size="small"
-              fullWidth
+            <Autocomplete
+              freeSolo
+              options={postes}
+              loading={loadingDropdowns}
+              value={search.emis_a || ''}
+              onInputChange={(_, value) => setSearch({ ...search, emis_a: value })}
+              renderInput={params => (
+                <TextField {...params} label="Emis à" size="small" fullWidth />
+              )}
             />
           </Grid>
         </Grid>
@@ -317,43 +372,67 @@ const CertlPage = () => {
         </Typography>
       </Box>
 
-      {/* Graphiques */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 4, mb: 4 }}>
-        <Box sx={{ flex: 1, minWidth: 300 }}>
+      {/* Graphiques dynamiques et responsives */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        flexWrap: 'wrap',
+        gap: 2,
+        mb: 4
+      }}>
+        <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300 }}>
           <Typography variant="subtitle2" align="center">Opérateurs miniers / Date (nombre de CERTL)</Typography>
           <Bar
             data={{
               labels: operateurLabels,
               datasets: [{ label: 'CERTL', data: operateurValues, backgroundColor: '#1976d2' }]
             }}
-            options={{ responsive: true, plugins: { legend: { display: false } } }}
+            options={{
+              responsive: false,
+              plugins: { legend: { display: false } },
+              maintainAspectRatio: true,
+              
+            }}
+            style={{ width: '100%', height: 250 }}
           />
         </Box>
-        <Box sx={{ flex: 1, minWidth: 300 }}>
+        <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300 }}>
           <Typography variant="subtitle2" align="center">Destinateurs / Date (nombre de CERTL)</Typography>
           <Bar
             data={{
               labels: destinateurLabels,
               datasets: [{ label: 'CERTL', data: destinateurValues, backgroundColor: '#388e3c' }]
             }}
-            options={{ responsive: true, plugins: { legend: { display: false } } }}
+            options={{
+              responsive: false,
+              plugins: { legend: { display: false } },
+              maintainAspectRatio: true,
+              
+            }}
+            style={{ width: '100%', height: 250 }}
           />
         </Box>
-        <Box sx={{ flex: 1, minWidth: 300 }}>
+        <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300 }}>
           <Typography variant="subtitle2" align="center">Produits / Date (quantité)</Typography>
           <Bar
             data={{
               labels: produitLabels,
               datasets: [{ label: 'Poids (t)', data: produitValues, backgroundColor: '#fbc02d' }]
             }}
-            options={{ responsive: true, plugins: { legend: { display: false } } }}
+            options={{
+              responsive: false,
+              plugins: { legend: { display: false } },
+              maintainAspectRatio: true,
+              
+            }}
+            style={{ width: '100%', height: 250 }}
           />
         </Box>
       </Box>
 
-      {/* Tableau avec tri */}
-      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-        <Table>
+      {/* Tableau responsive avec pagination */}
+      <TableContainer component={Paper} sx={{ overflowX: 'auto', minWidth: isMobile ? 350 : 900 }}>
+        <Table size={isMobile ? "small" : "medium"}>
           <TableHead>
             <TableRow>
               <TableCell>
@@ -389,7 +468,7 @@ const CertlPage = () => {
                   direction={sortConfig.direction}
                   onClick={() => handleSort('destinateur')}
                 >
-                  Destinateur
+                  Destinataire
                 </TableSortLabel>
               </TableCell>
               <TableCell>
@@ -423,7 +502,7 @@ const CertlPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredCertls.map((certl) => (
+            {filteredCertls.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((certl) => (
               <TableRow key={certl.id}>
                 <TableCell>{certl.numero_certificat}</TableCell>
                 <TableCell>{certl.date_emission}</TableCell>
@@ -448,6 +527,15 @@ const CertlPage = () => {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={filteredCertls.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+        />
       </TableContainer>
     </Container>
   );

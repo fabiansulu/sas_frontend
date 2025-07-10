@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, TextField, Container, Typography, Box, MenuItem, Grid } from '@mui/material';
+import { Button, TextField, Container, Typography, Box, CircularProgress, Alert, Autocomplete } from '@mui/material';
 import { certlApi } from '../api/certlApi';
 import { exportateurApi } from '../api/exportateurApi';
 import { produitApi } from '../api/produitApi';
@@ -27,35 +27,31 @@ const CertlCreatePage = () => {
   const [exportateurs, setExportateurs] = useState([]);
   const [produits, setProduits] = useState([]);
   const [postes, setPostes] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   // Pour le résumé des derniers enregistrements
   const [recentCertls, setRecentCertls] = useState([]);
 
+  // Chargement suggestions pour autocomplete (texte uniquement)
   useEffect(() => {
-    const fetchAll = async (api, key = 'designation') => {
-      let results = [];
-      let page = 1;
-      let hasNext = true;
-      while (hasNext) {
-        const res = await api.getAll({ params: { page, page_size: 100 } });
-        const data = res.data.results || res.data || [];
-        results = results.concat(data);
-        hasNext = !!res.data.next;
-        page += 1;
-      }
-      // Tri alphabétique
-      return results.sort((a, b) => (a[key] || '').localeCompare(b[key] || ''));
-    };
-
     const fetchData = async () => {
+      setLoading(true);
+      setError('');
       try {
-        setExportateurs(await fetchAll(exportateurApi, 'designation'));
-        setProduits(await fetchAll(produitApi, 'designation'));
-        setPostes(await fetchAll(posteApi, 'site')); // ou 'poste' selon ton modèle
-      } catch (error) {
-        console.error('Erreur lors du chargement des listes:', error);
+        const [exp, prod, pos] = await Promise.all([
+          exportateurApi.getAll({ params: { page_size: 10000 } }),
+          produitApi.getAll({ params: { page_size: 10000 } }),
+          posteApi.getAll({ params: { page_size: 10000 } }),
+        ]);
+        setExportateurs((exp.data.results || exp.data || []).map(e => ({ id: e.id, label: e.designation })).filter(e => e.label));
+        setProduits((prod.data.results || prod.data || []).map(e => ({ id: e.id, label: e.designation })).filter(e => e.label));
+        setPostes((pos.data.results || pos.data || []).map(e => ({ id: e.id, label: e.site || e.poste || e.antenne })).filter(e => e.label));
+      } catch (err) {
+        setError("Erreur lors du chargement des listes. Vérifiez la connexion au serveur.");
+        console.error('Erreur lors du chargement des listes:', err);
       }
+      setLoading(false);
     };
     fetchData();
   }, []);
@@ -93,6 +89,22 @@ const CertlCreatePage = () => {
     fetchRecentCertls();
   };
 
+  const handleChange = (e) => {
+    const { name, value, files } = e.target;
+    if (name === 'numero_certificat') {
+      setFormData({ ...formData, [name]: value.toUpperCase() });
+    } else if (name === 'scan') {
+      setFormData({ ...formData, scan: files[0] });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
+  };
+
+  // Pour les champs autocomplete
+  const handleAutocompleteChange = (name, option) => {
+    setFormData({ ...formData, [name]: option ? option.id : '' });
+  };
+
   const handleSubmit = async (e, keepOpen = false) => {
     e.preventDefault();
     setLoading(true);
@@ -116,6 +128,7 @@ const CertlCreatePage = () => {
         navigate('/certl');
       }
     } catch (error) {
+      alert("Erreur lors de la création du CERTL.");
       console.error('Error creating CERTL:', error);
     } finally {
       setLoading(false);
@@ -123,179 +136,154 @@ const CertlCreatePage = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <Container maxWidth="sm">
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight={300}>
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography>Chargement des listes...</Typography>
+        </Box>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="sm">
+        <Alert severity="error">{error}</Alert>
+      </Container>
+    );
+  }
+
   return (
-    <Container maxWidth="md">
+    <Container maxWidth="sm">
       <Typography variant="h4" gutterBottom>
         Nouveau CERTL
       </Typography>
-      <form onSubmit={e => handleSubmit(e, false)}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              type='date'
-              label="Date d'Emission"
-              value={formData.date_emission}
-              onChange={(e) => setFormData({...formData, date_emission: e.target.value})}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              label="Numéro CERTL"
-              value={formData.numero_certificat}
-              onChange={(e) => setFormData({...formData, numero_certificat: e.target.value.toUpperCase()})}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-              sx={{ textTransform: 'uppercase' }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              label="Opérateur minier"
-              value={formData.operateur_minier}
-              onChange={(e) => setFormData({...formData, operateur_minier: e.target.value})}
-              fullWidth
-              size='small'
-              margin="normal"
-              required
-            >
-              <MenuItem value="">Sélectionner un opérateur</MenuItem>
-              {exportateurs.map((exp) => (
-                <MenuItem key={exp.id} value={exp.id}>
-                  {exp.designation || exp.sigle}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              label="Destinateur"
-              value={formData.destinateur}
-              onChange={(e) => setFormData({...formData, destinateur: e.target.value})}
-              fullWidth
-              size='small'
-              margin="normal"
-              required
-            >
-              <MenuItem value="">Sélectionner un destinateur</MenuItem>
-              {exportateurs.map((exp) => (
-                <MenuItem key={exp.id} value={exp.id}>
-                  {exp.designation || exp.sigle}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              label="Origine"
-              value={formData.origine}
-              onChange={(e) => setFormData({...formData, origine: e.target.value})}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              label="Produit"
-              value={formData.produit}
-              onChange={(e) => setFormData({...formData, produit: e.target.value})}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-            >
-              <MenuItem value="">Sélectionner un produit</MenuItem>
-              {produits.map((prod) => (
-                <MenuItem key={prod.id} value={prod.id}>
-                  {prod.designation || prod.abbreviation}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              type="number"
-              step="0.01"
-              label="Taux de Rx"
-              value={formData.taux_radioactivite}
-              onChange={(e) => setFormData({...formData, taux_radioactivite: e.target.value})}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              label="Poids"
-              type='number'
-              step="0.01"
-              placeholder="Poids en tonnes"
-              value={formData.poids}
-              onChange={(e) => setFormData({...formData, poids: e.target.value})}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <input 
-              type="file" 
-              accept=".pdf,.jpg,.png"
-              onChange={e => setFormData ({ ...formData, scan: e.target.files[0]})}
-              style={{ width: '100%', margin: '8px 0'}}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              select
-              label="Emis à"
-              value={formData.emis_a}
-              onChange={(e) => setFormData({...formData, emis_a: e.target.value})}
-              fullWidth
-              margin="normal"
-              required
-              size='small'
-            >
-              <MenuItem value="">Sélectionner le lieu d'émission</MenuItem>
-              {postes.map((a) => (
-                <MenuItem key={a.id} value={a.id}>
-                  {a.poste || a.site}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-              <Button type="submit" variant="contained" disabled={loading} fullWidth>
-                Enregistrer
-              </Button>
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={e => handleSubmit(e, true)}
-                type="button"
-                disabled={loading}
-                fullWidth
-              >
-                Enregistrer et nouveau
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
-      </form>
+      <Box component="form" onSubmit={e => handleSubmit(e, false)} sx={{ mt: 2 }}>
+        <TextField
+          type='date'
+          label="Date d'Emission"
+          name="date_emission"
+          value={formData.date_emission}
+          onChange={handleChange}
+          fullWidth
+          margin="normal"
+          required
+          size='small'
+          InputLabelProps={{ shrink: true }}
+        />
+        <TextField
+          label="Numéro CERTL"
+          name="numero_certificat"
+          value={formData.numero_certificat}
+          onChange={handleChange}
+          fullWidth
+          margin="normal"
+          required
+          size='small'
+          sx={{ textTransform: 'uppercase' }}
+        />
+        <Autocomplete
+          options={exportateurs}
+          getOptionLabel={option => option.label || ''}
+          value={exportateurs.find(e => e.id === formData.operateur_minier) || null}
+          onChange={(_, value) => handleAutocompleteChange('operateur_minier', value)}
+          renderInput={params => (
+            <TextField {...params} label="Opérateur minier" margin="normal" required size="small" fullWidth />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value?.id}
+        />
+        <Autocomplete
+          options={exportateurs}
+          getOptionLabel={option => option.label || ''}
+          value={exportateurs.find(e => e.id === formData.destinateur) || null}
+          onChange={(_, value) => handleAutocompleteChange('destinateur', value)}
+          renderInput={params => (
+            <TextField {...params} label="Destinateur" margin="normal" required size="small" fullWidth />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value?.id}
+        />
+        <TextField
+          label="Origine"
+          name="origine"
+          value={formData.origine}
+          onChange={handleChange}
+          fullWidth
+          margin="normal"
+          required
+          size='small'
+        />
+        <Autocomplete
+          options={produits}
+          getOptionLabel={option => option.label || ''}
+          value={produits.find(e => e.id === formData.produit) || null}
+          onChange={(_, value) => handleAutocompleteChange('produit', value)}
+          renderInput={params => (
+            <TextField {...params} label="Produit" margin="normal" required size="small" fullWidth />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value?.id}
+        />
+        <TextField
+          type="number"
+          step="0.01"
+          label="Taux de Rx"
+          name="taux_radioactivite"
+          value={formData.taux_radioactivite}
+          onChange={handleChange}
+          fullWidth
+          margin="normal"
+          required
+          size='small'
+        />
+        <TextField
+          label="Poids"
+          name="poids"
+          type='number'
+          step="0.01"
+          placeholder="Poids en tonnes"
+          value={formData.poids}
+          onChange={handleChange}
+          fullWidth
+          margin="normal"
+          required
+          size='small'
+        />
+        <Box sx={{ my: 2 }}>
+          <input 
+            type="file" 
+            name="scan"
+            accept=".pdf,.jpg,.png"
+            onChange={handleChange}
+            style={{ width: '100%', margin: '8px 0'}}
+          />
+        </Box>
+        <Autocomplete
+          options={postes}
+          getOptionLabel={option => option.label || ''}
+          value={postes.find(e => e.id === formData.emis_a) || null}
+          onChange={(_, value) => handleAutocompleteChange('emis_a', value)}
+          renderInput={params => (
+            <TextField {...params} label="Emis à" margin="normal" required size="small" fullWidth />
+          )}
+          isOptionEqualToValue={(option, value) => option.id === value?.id}
+        />
+        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+          <Button type="submit" variant="contained" disabled={loading} fullWidth>
+            Enregistrer
+          </Button>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={e => handleSubmit(e, true)}
+            type="button"
+            disabled={loading}
+            fullWidth
+          >
+            Enregistrer et nouveau
+          </Button>
+        </Box>
+      </Box>
 
       {/* Résumé des derniers enregistrements */}
       <Box sx={{ mt: 4 }}>

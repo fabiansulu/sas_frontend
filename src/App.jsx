@@ -1,22 +1,19 @@
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
-import { useState } from 'react';
-import reactLogo from './assets/react.svg';
-import viteLogo from '/vite.svg';
-import './App.css';
 import AppRoutes from './routes';
+import { PaginationProvider } from './contexts/PaginationContext';
 
-//création d'un theme MUI de base
+// Création d'un thème MUI de base
 const theme = createTheme();
 
-function App(){
+function App() {
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline/>
-      <AppRoutes/>
+      <CssBaseline />
+      <PaginationProvider>
+        <AppRoutes />
+      </PaginationProvider>
     </ThemeProvider>
   );
 }
 
 export default App;
-
-

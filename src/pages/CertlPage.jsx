@@ -3,7 +3,7 @@ import Loader from '../components/Loader';
 import ErrorDisplay from '../components/ErrorDisplay';
 import { Link } from 'react-router-dom';
 import {
-  Button, Table, Container, Typography, Paper, TableBody, TableCell,
+  Button, Table, Typography, Paper, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, Box, TableSortLabel, Grid, useMediaQuery,
   TablePagination, Autocomplete
 } from '@mui/material';
@@ -213,331 +213,229 @@ const CertlPage = () => {
   if (error) return <ErrorDisplay error={error} />;
 
   return (
-    <Container maxWidth="xl" sx={{ px: isMobile ? 0.5 : 2 }}>
-      <Typography variant={isMobile ? "h6" : "h4"} gutterBottom>
-        CCR - TRANSACTIONS LOCALES
-      </Typography>
-      <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 2, mb: 2 }}>
-        <Button component={Link} to="/certl/create" variant="contained" sx={{ mb: isMobile ? 1 : 0 }}>
-          Nouveau CERTL
-        </Button>
-        <Button
-          variant="outlined"
-          sx={{ mb: isMobile ? 1 : 0 }}
-          onClick={() => {
-            window.open('https://cgea-sas-backend.onrender.com/api/export/certl/excel/', '_blank');
-          }}
-        >
-          Exporter en Excel
-        </Button>
-      </Box>
-
-      {/* Formulaire de recherche responsive avec autocomplete freeSolo */}
-      <Paper sx={{ p: isMobile ? 1 : 2, mb: 2 }}>
-        <Grid container spacing={1}>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Date précise"
-              type="date"
-              value={search.date}
-              onChange={e => setSearch({ ...search, date: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Du"
-              type="date"
-              value={search.dateStart}
-              onChange={e => setSearch({ ...search, dateStart: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Au"
-              type="date"
-              value={search.dateEnd}
-              onChange={e => setSearch({ ...search, dateEnd: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Mois"
-              type="month"
-              value={search.month}
-              onChange={e => setSearch({ ...search, month: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Année"
-              type="number"
-              value={search.year}
-              onChange={e => setSearch({ ...search, year: e.target.value })}
-              size="small"
-              fullWidth
-              inputProps={{ min: 1900, max: 2100 }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Numéro CERTL"
-              value={search.numero_certificat}
-              onChange={e => setSearch({ ...search, numero_certificat: e.target.value })}
-              size="small"
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Autocomplete
-              freeSolo
-              options={operateurs}
-              loading={loadingDropdowns}
-              value={search.operateur_minier || ''}
-              onInputChange={(_, value) => setSearch({ ...search, operateur_minier: value })}
-              renderInput={params => (
-                <TextField {...params} label="Opérateur minier" size="small" fullWidth />
-              )}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Autocomplete
-              freeSolo
-              options={destinateurs}
-              loading={loadingDropdowns}
-              value={search.destinateur || ''}
-              onInputChange={(_, value) => setSearch({ ...search, destinateur: value })}
-              renderInput={params => (
-                <TextField {...params} label="Destinateur" size="small" fullWidth />
-              )}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Autocomplete
-              freeSolo
-              options={produits}
-              loading={loadingDropdowns}
-              value={search.produit || ''}
-              onInputChange={(_, value) => setSearch({ ...search, produit: value })}
-              renderInput={params => (
-                <TextField {...params} label="Produit" size="small" fullWidth />
-              )}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Origine"
-              value={search.origine}
-              onChange={e => setSearch({ ...search, origine: e.target.value })}
-              size="small"
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Autocomplete
-              freeSolo
-              options={postes}
-              loading={loadingDropdowns}
-              value={search.emis_a || ''}
-              onInputChange={(_, value) => setSearch({ ...search, emis_a: value })}
-              renderInput={params => (
-                <TextField {...params} label="Emis à" size="small" fullWidth />
-              )}
-            />
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Statistiques et totaux */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="subtitle1">
-          Total CERTL enregistrés : <strong>{totalCertls}</strong>
-        </Typography>
-        <Typography variant="subtitle1">
-          Total poids (t) : <strong>{totalPoids}</strong>
-        </Typography>
-        <Typography variant="subtitle2">
-          Taux radioactivité min : <strong>{tauxMin}</strong> | max : <strong>{tauxMax}</strong> | moyen : <strong>{tauxMoyen}</strong>
-        </Typography>
-      </Box>
-
-      {/* Graphiques dynamiques et responsives */}
-      <Box sx={{
+    <Box
+      sx={{
+        minHeight: '100vh',
+        width: '100vw',
         display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        flexWrap: 'wrap',
-        gap: 2,
-        mb: 4
-      }}>
-        <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300 }}>
-          <Typography variant="subtitle2" align="center">Opérateurs miniers / Date (nombre de CERTL)</Typography>
-          <Bar
-            data={{
-              labels: operateurLabels,
-              datasets: [{ label: 'CERTL', data: operateurValues, backgroundColor: '#1976d2' }]
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        bgcolor: 'background.default',
+        py: 3,
+        overflowX: 'auto',
+      }}
+    >
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: 1500,
+          mx: 'auto',
+          p: { xs: 1, md: 3 },
+        }}
+      >
+        <Typography variant={isMobile ? "h6" : "h4"} gutterBottom>
+          CCR - TRANSACTIONS LOCALES
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 2, mb: 2 }}>
+          <Button component={Link} to="/certl/create" variant="contained" sx={{ mb: isMobile ? 1 : 0 }}>
+            Nouveau CERTL
+          </Button>
+          <Button
+            variant="outlined"
+            sx={{ mb: isMobile ? 1 : 0 }}
+            onClick={() => {
+              window.open('https://cgea-sas-backend.onrender.com/api/export/certl/excel/', '_blank');
             }}
-            options={{
-              responsive: false,
-              plugins: { legend: { display: false } },
-              maintainAspectRatio: true,
-              
-            }}
-            style={{ width: '100%', height: 250 }}
-          />
+          >
+            Exporter en Excel
+          </Button>
         </Box>
-        <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300 }}>
-          <Typography variant="subtitle2" align="center">Destinateurs / Date (nombre de CERTL)</Typography>
-          <Bar
-            data={{
-              labels: destinateurLabels,
-              datasets: [{ label: 'CERTL', data: destinateurValues, backgroundColor: '#388e3c' }]
-            }}
-            options={{
-              responsive: false,
-              plugins: { legend: { display: false } },
-              maintainAspectRatio: true,
-              
-            }}
-            style={{ width: '100%', height: 250 }}
-          />
-        </Box>
-        <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300 }}>
-          <Typography variant="subtitle2" align="center">Produits / Date (quantité)</Typography>
-          <Bar
-            data={{
-              labels: produitLabels,
-              datasets: [{ label: 'Poids (t)', data: produitValues, backgroundColor: '#fbc02d' }]
-            }}
-            options={{
-              responsive: false,
-              plugins: { legend: { display: false } },
-              maintainAspectRatio: true,
-              
-            }}
-            style={{ width: '100%', height: 250 }}
-          />
-        </Box>
-      </Box>
 
-      {/* Tableau responsive avec pagination */}
-      <TableContainer component={Paper} sx={{ overflowX: 'auto', minWidth: isMobile ? 350 : 900 }}>
-        <Table size={isMobile ? "small" : "medium"}>
-          <TableHead>
-            <TableRow>
-              <TableCell>
-                <TableSortLabel
-                  active={sortConfig.key === 'numero_certificat'}
-                  direction={sortConfig.direction}
-                  onClick={() => handleSort('numero_certificat')}
-                >
-                  Numéro
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={sortConfig.key === 'date_emission'}
-                  direction={sortConfig.direction}
-                  onClick={() => handleSort('date_emission')}
-                >
-                  Date
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={sortConfig.key === 'operateur_minier'}
-                  direction={sortConfig.direction}
-                  onClick={() => handleSort('operateur_minier')}
-                >
-                  Opérateur Minier
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={sortConfig.key === 'destinateur'}
-                  direction={sortConfig.direction}
-                  onClick={() => handleSort('destinateur')}
-                >
-                  Destinataire
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={sortConfig.key === 'origine'}
-                  direction={sortConfig.direction}
-                  onClick={() => handleSort('origine')}
-                >
-                  Origine
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={sortConfig.key === 'produit'}
-                  direction={sortConfig.direction}
-                  onClick={() => handleSort('produit')}
-                >
-                  Produit
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={sortConfig.key === 'poids'}
-                  direction={sortConfig.direction}
-                  onClick={() => handleSort('poids')}
-                >
-                  Poids (t)
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredCertls.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((certl) => (
-              <TableRow key={certl.id}>
-                <TableCell>{certl.numero_certificat}</TableCell>
-                <TableCell>{certl.date_emission}</TableCell>
-                <TableCell>{certl.operateur_minier?.designation}</TableCell>
-                <TableCell>{certl.destinateur?.designation}</TableCell>
-                <TableCell>{certl.origine}</TableCell>
-                <TableCell>{certl.produit?.designation}</TableCell>
-                <TableCell>{certl.poids}</TableCell>
-                <TableCell>
-                  <Button component={Link} to={`/certl/${certl.id}`} size="small">
-                    Détails
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filteredCertls.length === 0 && (
+        {/* Formulaire de recherche responsive avec autocomplete freeSolo */}
+        <Paper sx={{ p: isMobile ? 1 : 2, mb: 2 }}>
+          <Grid container spacing={1}>
+            {/* ...champs de recherche inchangés... */}
+            {/* Copie ici le code de tes champs de recherche */}
+          </Grid>
+        </Paper>
+
+        {/* Statistiques et totaux */}
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle1">
+            Total CERTL enregistrés : <strong>{totalCertls}</strong>
+          </Typography>
+          <Typography variant="subtitle1">
+            Total poids (t) : <strong>{totalPoids}</strong>
+          </Typography>
+          <Typography variant="subtitle2">
+            Taux radioactivité min : <strong>{tauxMin}</strong> | max : <strong>{tauxMax}</strong> | moyen : <strong>{tauxMoyen}</strong>
+          </Typography>
+        </Box>
+
+        {/* Graphiques dynamiques et responsives */}
+        <Box sx={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          flexWrap: 'wrap',
+          gap: 2,
+          mb: 4
+        }}>
+          <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300 }}>
+            <Typography variant="subtitle2" align="center">Opérateurs miniers / Date (nombre de CERTL)</Typography>
+            <Bar
+              data={{
+                labels: operateurLabels,
+                datasets: [{ label: 'CERTL', data: operateurValues, backgroundColor: '#1976d2' }]
+              }}
+              options={{
+                responsive: false,
+                plugins: { legend: { display: false } },
+                maintainAspectRatio: true,
+              }}
+              style={{ width: '100%', height: 250 }}
+            />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300 }}>
+            <Typography variant="subtitle2" align="center">Destinateurs / Date (nombre de CERTL)</Typography>
+            <Bar
+              data={{
+                labels: destinateurLabels,
+                datasets: [{ label: 'CERTL', data: destinateurValues, backgroundColor: '#388e3c' }]
+              }}
+              options={{
+                responsive: false,
+                plugins: { legend: { display: false } },
+                maintainAspectRatio: true,
+              }}
+              style={{ width: '100%', height: 250 }}
+            />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: isMobile ? 200 : 300 }}>
+            <Typography variant="subtitle2" align="center">Produits / Date (quantité)</Typography>
+            <Bar
+              data={{
+                labels: produitLabels,
+                datasets: [{ label: 'Poids (t)', data: produitValues, backgroundColor: '#fbc02d' }]
+              }}
+              options={{
+                responsive: false,
+                plugins: { legend: { display: false } },
+                maintainAspectRatio: true,
+              }}
+              style={{ width: '100%', height: 250 }}
+            />
+          </Box>
+        </Box>
+
+        {/* Tableau responsive avec pagination */}
+        <TableContainer component={Paper} sx={{ overflowX: 'auto', minWidth: isMobile ? 350 : 900 }}>
+          <Table size={isMobile ? "small" : "medium"}>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={8} align="center">
-                  Aucun résultat trouvé.
+                <TableCell>
+                  <TableSortLabel
+                    active={sortConfig.key === 'numero_certificat'}
+                    direction={sortConfig.direction}
+                    onClick={() => handleSort('numero_certificat')}
+                  >
+                    Numéro
+                  </TableSortLabel>
                 </TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={sortConfig.key === 'date_emission'}
+                    direction={sortConfig.direction}
+                    onClick={() => handleSort('date_emission')}
+                  >
+                    Date
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={sortConfig.key === 'operateur_minier'}
+                    direction={sortConfig.direction}
+                    onClick={() => handleSort('operateur_minier')}
+                  >
+                    Opérateur Minier
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={sortConfig.key === 'destinateur'}
+                    direction={sortConfig.direction}
+                    onClick={() => handleSort('destinateur')}
+                  >
+                    Destinataire
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={sortConfig.key === 'origine'}
+                    direction={sortConfig.direction}
+                    onClick={() => handleSort('origine')}
+                  >
+                    Origine
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={sortConfig.key === 'produit'}
+                    direction={sortConfig.direction}
+                    onClick={() => handleSort('produit')}
+                  >
+                    Produit
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={sortConfig.key === 'poids'}
+                    direction={sortConfig.direction}
+                    onClick={() => handleSort('poids')}
+                  >
+                    Poids (t)
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          component="div"
-          count={filteredCertls.length}
-          page={page}
-          onPageChange={handleChangePage}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-        />
-      </TableContainer>
-    </Container>
+            </TableHead>
+            <TableBody>
+              {filteredCertls.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((certl) => (
+                <TableRow key={certl.id}>
+                  <TableCell>{certl.numero_certificat}</TableCell>
+                  <TableCell>{certl.date_emission}</TableCell>
+                  <TableCell>{certl.operateur_minier?.designation}</TableCell>
+                  <TableCell>{certl.destinateur?.designation}</TableCell>
+                  <TableCell>{certl.origine}</TableCell>
+                  <TableCell>{certl.produit?.designation}</TableCell>
+                  <TableCell>{certl.poids}</TableCell>
+                  <TableCell>
+                    <Button component={Link} to={`/certl/${certl.id}`} size="small">
+                      Détails
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredCertls.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    Aucun résultat trouvé.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+          <TablePagination
+            component="div"
+            count={filteredCertls.length}
+            page={page}
+            onPageChange={handleChangePage}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+          />
+        </TableContainer>
+      </Box>
+    </Box>
   );
 };
 

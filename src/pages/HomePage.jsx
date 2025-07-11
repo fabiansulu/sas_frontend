@@ -15,8 +15,25 @@ const HomePage = () => {
   };
 
   return (
-    <Box sx={{ p: { xs: 1, md: 4 }, minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Paper elevation={3} sx={{ maxWidth: 800, mx: 'auto', p: { xs: 2, md: 4 }, mt: 4 }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        width: '100vw',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        bgcolor: 'background.default',
+      }}
+    >
+      <Paper
+        elevation={3}
+        sx={{
+          maxWidth: 800,
+          width: '100%',
+          mx: 'auto',
+          p: { xs: 2, md: 4 },
+        }}
+      >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h4" fontWeight="bold" color="primary">
             SAS 2.0

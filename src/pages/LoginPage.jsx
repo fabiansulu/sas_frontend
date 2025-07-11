@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  Container,
+import {
   Box,
   Typography,
   TextField,
@@ -34,13 +33,28 @@ export default function LoginPage() {
   };
 
   return (
-    <Container maxWidth="xs">
+    <Box
+      sx={{
+        minHeight: '100vh',
+        width: '100vw',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        bgcolor: 'background.default',
+        position: 'relative',
+      }}
+    >
       <Box
         sx={{
-          marginTop: 8,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          bgcolor: 'background.paper',
+          p: 3,
+          borderRadius: 2,
+          boxShadow: 3,
+          maxWidth: 400,
+          width: '100%',
         }}
       >
         {/* Titre SAS 2.0 */}
@@ -53,7 +67,7 @@ export default function LoginPage() {
         <Typography component="h2" variant="h5">
           Connexion
         </Typography>
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
           <TextField
             margin="normal"
             required
@@ -61,7 +75,7 @@ export default function LoginPage() {
             label="Nom d'utilisateur"
             autoFocus
             value={credentials.username}
-            onChange={(e) => setCredentials({...credentials, username: e.target.value})}
+            onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
             disabled={loading}
           />
           <TextField
@@ -71,7 +85,7 @@ export default function LoginPage() {
             label="Mot de passe"
             type="password"
             value={credentials.password}
-            onChange={(e) => setCredentials({...credentials, password: e.target.value})}
+            onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
             disabled={loading}
           />
           <Button
@@ -123,6 +137,6 @@ export default function LoginPage() {
           Fabian Sulu aka Authentik
         </MuiLink>
       </Box>
-    </Container>
+    </Box>
   );
 }

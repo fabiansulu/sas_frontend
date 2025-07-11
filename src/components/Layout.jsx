@@ -13,19 +13,37 @@ const Layout = ({ children }) => {
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <CssBaseline />
       <Navbar />
-      <Container maxWidth="lg" sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Bouton Retour, masqué sur HomePage */}
-        {!hideBack && (
-          <Box sx={{ p: { xs: 0.5, md: 1 } }}>
-            <Button variant="outlined" size="small" onClick={() => navigate(-1)}>
-              &#8592; Retour
-            </Button>
+      <Box sx={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center', // centre horizontalement
+        justifyContent: 'center', // centre verticalement
+        width: '100%',
+      }}>
+        <Container
+          maxWidth="md"
+          sx={{
+            width: '100%',
+            px: { xs: 1, sm: 3, md: 6 },
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          {/* Bouton Retour, masqué sur HomePage */}
+          {!hideBack && (
+            <Box sx={{ p: { xs: 0.5, md: 1 }, alignSelf: 'flex-start' }}>
+              <Button variant="outlined" size="small" onClick={() => navigate(-1)}>
+                &#8592; Retour
+              </Button>
+            </Box>
+          )}
+          <Box component="main" sx={{ flexGrow: 1, p: { xs: 1, md: 3 }, width: '100%' }}>
+            {children}
           </Box>
-        )}
-        <Box component="main" sx={{ flexGrow: 1, p: { xs: 1, md: 3 } }}>
-          {children}
-        </Box>
-      </Container>
+        </Container>
+      </Box>
       <Box
         component="footer"
         sx={{
@@ -33,7 +51,7 @@ const Layout = ({ children }) => {
           textAlign: 'center',
           py: 1,
           bgcolor: 'background.default',
-          fontSize: { xs: '0.7rem', md: '0.9rem' },
+          fontSize: { xs: '0.7rem', md: '0.8rem' },
           color: 'text.secondary',
         }}
       >

@@ -254,8 +254,93 @@ const CertlPage = () => {
         {/* Formulaire de recherche responsive avec autocomplete freeSolo */}
         <Paper sx={{ p: isMobile ? 1 : 2, mb: 2 }}>
           <Grid container spacing={1}>
-            {/* ...champs de recherche inchangés... */}
-            {/* Copie ici le code de tes champs de recherche */}
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                label="Numéro CERTL"
+                value={search.numero_certificat}
+                onChange={e => setSearch({ ...search, numero_certificat: e.target.value })}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Autocomplete
+                freeSolo
+                options={operateurs}
+                value={search.operateur_minier}
+                onInputChange={(e, value) => setSearch({ ...search, operateur_minier: value })}
+                renderInput={(params) => (
+                  <TextField {...params} label="Opérateur minier" size="small" fullWidth />
+                )}
+                loading={loadingDropdowns}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Autocomplete
+                freeSolo
+                options={destinateurs}
+                value={search.destinateur}
+                onInputChange={(e, value) => setSearch({ ...search, destinateur: value })}
+                renderInput={(params) => (
+                  <TextField {...params} label="Destinataire" size="small" fullWidth />
+                )}
+                loading={loadingDropdowns}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Autocomplete
+                freeSolo
+                options={produits}
+                value={search.produit}
+                onInputChange={(e, value) => setSearch({ ...search, produit: value })}
+                renderInput={(params) => (
+                  <TextField {...params} label="Produit" size="small" fullWidth />
+                )}
+                loading={loadingDropdowns}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                label="Origine"
+                value={search.origine}
+                onChange={e => setSearch({ ...search, origine: e.target.value })}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                label="Date exacte"
+                type="date"
+                value={search.date}
+                onChange={e => setSearch({ ...search, date: e.target.value })}
+                fullWidth
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                label="Date début"
+                type="date"
+                value={search.dateStart}
+                onChange={e => setSearch({ ...search, dateStart: e.target.value })}
+                fullWidth
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                label="Date fin"
+                type="date"
+                value={search.dateEnd}
+                onChange={e => setSearch({ ...search, dateEnd: e.target.value })}
+                fullWidth
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
           </Grid>
         </Paper>
 
